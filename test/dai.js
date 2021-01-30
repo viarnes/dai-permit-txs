@@ -4,7 +4,7 @@ const TEST_WAD = 100;
 const HOLDER_PRIV_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 const PERMIT_TYPEHASH = '0xea2aa0a1be11a07ed86d755c93467f4f82362b452371d1ba94d1715123511acb';
 
-describe('Bitera Wallet smart wallet contracts', () => {
+describe('Bitera/Dai transactions', () => {
   let ward, holder, spender;
   let dai;
 
