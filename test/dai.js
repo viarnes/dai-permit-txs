@@ -22,7 +22,7 @@ describe('Bitera/Dai transactions', () => {
     });
 
     it('should not allow spender to transfer dai', async () => {
-      await expect(dai.transferFrom(holder.address, spender.address, TEST_WAD)).to.be.revertedWith('Dai/insufficient-allowance');
+      await expect(dai.connect(spender).transferFrom(holder.address, spender.address, TEST_WAD)).to.be.revertedWith('Dai/insufficient-allowance');
     });
 
     it('should allow spender to transfer dai', async () => {
@@ -35,7 +35,7 @@ describe('Bitera/Dai transactions', () => {
       let msg = ethers.utils.keccak256(abiCoder.encode(
         ['bytes32', 'address', 'address', 'uint256', 'uint256', 'bool'], 
         [PERMIT_TYPEHASH, holder.address, spender.address, nonce, expiry, 1]
-      ););
+      ));
 
       let digest = ethers.utils.solidityKeccak256(
         ['string', 'bytes32', 'bytes32'], 
