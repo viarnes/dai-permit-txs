@@ -1,0 +1,27 @@
+{
+  "name": "dai-permit-txs",
+  "version": "1.0.0",
+  "description": "testing dai.sol permit + transfers",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viarnes/dai-permit-txs.git"
+  },
+  "author": "viarnes",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/viarnes/dai-permit-txs/issues"
+  },
+  "homepage": "https://github.com/viarnes/dai-permit-txs#readme",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "chai": "^4.2.0",
+    "ethereum-waffle": "^3.2.2",
+    "ethers": "^5.0.26",
+    "hardhat": "^2.0.8"
+  }
+}
