@@ -1,24 +1,48 @@
-const { expect } = require("chai");
+const { expect } = require('chai');
+const DAI_ABI = require('../artifacts/contracts/Dai.sol/Dai.json');
 const HARDHAT_CHAIN_ID = 31337; // https://hardhat.org/config/#hardhat-network
 const TEST_WAD = 100;
-const HOLDER_PRIV_KEY =
-  "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-const PERMIT_TYPEHASH =
-  "0xea2aa0a1be11a07ed86d755c93467f4f82362b452371d1ba94d1715123511acb";
+const HOLDER_PRIV_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+const PERMIT_TYPEHASH = '0xea2aa0a1be11a07ed86d755c93467f4f82362b452371d1ba94d1715123511acb';
+const DOMAIN_SEPARATOR = '0x304244d5155bd6c5a079a1ba2321499d46e85aeaffd8911498d159d27832b63e';
 
-describe("Bitera/Dai transactions", () => {
+const createPermitSignature = (holder, spender, nonce, expiry) => {
+  let abiCoder = new ethers.utils.AbiCoder();
+  let prefix = '\x19\x01'; // same
+
+  /* Creación del permit + Firma */
+
+  // priv key del que está autorizando
+  const signingKey = new ethers.utils.SigningKey(HOLDER_PRIV_KEY);
+  // msg que firma que contiene los parametros enunciados arriba junto al spender y el holder
+  let msg = ethers.utils.keccak256(
+    abiCoder.encode(
+      ['bytes32', 'address', 'address', 'uint256', 'uint256', 'bool'],
+      [PERMIT_TYPEHASH, holder, spender, nonce, expiry, 1],
+    ),
+  );
+  // hasheamos el mensaje
+  let digest = ethers.utils.solidityKeccak256(
+    ['string', 'bytes32', 'bytes32'],
+    [prefix, DOMAIN_SEPARATOR, msg],
+  );
+  // lo firmamos
+  return signingKey.signDigest(digest);
+};
+
+describe('Bitera/Dai transactions', () => {
   let ward, holder, spender;
   let dai;
 
   before(async () => {
-    const Dai = await ethers.getContractFactory("Dai");
+    const Dai = await ethers.getContractFactory('Dai');
     dai = await Dai.deploy(HARDHAT_CHAIN_ID);
     await dai.deployed();
     [ward, holder, spender] = await ethers.getSigners();
   });
 
-  describe("Dai.sol", () => {
-    it("should mint dai", async () => {
+  describe('Dai.sol', () => {
+    it('should mint dai', async () => {
       await dai.mint(holder.address, TEST_WAD);
       expect(await dai.balanceOf(holder.address)).to.equal(TEST_WAD);
     });
@@ -42,44 +66,25 @@ describe("Bitera/Dai transactions", () => {
 
     */
 
-    it("should not allow spender to transfer dai", async () => {
+    it('should not allow spender to transfer dai', async () => {
       // antes que nada, chequeamos que un spender (0xB por ej) no pueda mover los Dai de un holder (0xA) sin autorización
       await expect(
-        dai
-          .connect(spender)
-          .transferFrom(holder.address, spender.address, TEST_WAD)
-      ).to.be.revertedWith("Dai/insufficient-allowance");
+        dai.connect(spender).transferFrom(holder.address, spender.address, TEST_WAD),
+      ).to.be.revertedWith('Dai/insufficient-allowance');
     });
 
-    it("should allow spender to transfer dai", async () => {
-      let abiCoder = new ethers.utils.AbiCoder();
-
+    it('should allow spender to transfer dai', async () => {
       /* Parametros del permit */
 
       let nonce = 0; // se usa para impedir que un permit sea reutilizado
       let expiry = 9999999999; // se usa para la fecha de expiracion del permit
-      let DOMAIN_SEPARATOR = await dai.DOMAIN_SEPARATOR.call(); // see eip712 (not relevant)
-      let prefix = "\x19\x01"; // same
 
-
-      /* Creación del permit + Firma */
-
-      // priv key del que está autorizando 
-      const signingKey = new ethers.utils.SigningKey(HOLDER_PRIV_KEY);
-      // msg que firma que contiene los parametros enunciados arriba junto al spender y el holder
-      let msg = ethers.utils.keccak256(
-        abiCoder.encode(
-          ["bytes32", "address", "address", "uint256", "uint256", "bool"],
-          [PERMIT_TYPEHASH, holder.address, spender.address, nonce, expiry, 1]
-        )
+      const signature = createPermitSignature(
+        holder.address,
+        spender.address,
+        nonce,
+        expiry,
       );
-      // hasheamos el mensaje
-      let digest = ethers.utils.solidityKeccak256(
-        ["string", "bytes32", "bytes32"],
-        [prefix, DOMAIN_SEPARATOR, msg]
-      );
-      // lo firmamos
-      const signature = signingKey.signDigest(digest);
 
       /*
 
@@ -94,7 +99,7 @@ describe("Bitera/Dai transactions", () => {
 
       */
 
-      // luego ejecutamos el permit 
+      // luego ejecutamos el permit
       await dai.permit(
         holder.address,
         spender.address,
@@ -103,16 +108,56 @@ describe("Bitera/Dai transactions", () => {
         1,
         signature.v,
         signature.r,
-        signature.s
+        signature.s,
       );
       // chequeamos que el balance del spender sea 0
       expect(await dai.balanceOf(spender.address)).to.equal(0);
       // nos conectamos como el spender (en lugar de accounts[0])
       // y nos transferimos el dai del holder a nuestra propia cuenta
-      await dai
-        .connect(spender)
-        .transferFrom(holder.address, spender.address, TEST_WAD);
+      await dai.connect(spender).transferFrom(holder.address, spender.address, TEST_WAD);
       // chequeamos que el balance del speander sea la cantidad movida
+      expect(await dai.balanceOf(spender.address)).to.equal(TEST_WAD);
+    });
+  });
+
+  describe('DaiProxy.sol', () => {
+    before(async () => {
+      const DaiProxy = await ethers.getContractFactory('DaiProxy');
+      daiProxy = await DaiProxy.deploy();
+      await daiProxy.deployed();
+    });
+
+    it('should permit and transfer in a single tx', async () => {
+      let nonce = 0;
+      let expiry = 9999999999; 
+
+      const signature = createPermitSignature(
+        holder.address,
+        spender.address,
+        nonce,
+        expiry,
+      );
+
+      const iface = new ethers.utils.Interface(DAI_ABI.abi);
+      const permitData = await iface.encodeFunctionData('permit', [
+        holder.address,
+        spender.address,
+        nonce,
+        expiry,
+        1,
+        signature.v,
+        signature.r,
+        signature.s,
+      ]);
+
+      const transferData = await iface.encodeFunctionData('transferFrom', [
+        holder.address,
+        spender.address,
+        TEST_WAD,
+      ]);
+
+      await daiProxy.connect(spender).pt(dai.address, permitData, transferData);
+
       expect(await dai.balanceOf(spender.address)).to.equal(TEST_WAD);
     });
   });
