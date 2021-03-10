@@ -55,6 +55,7 @@ contract Dai {
     function transferFrom(address src, address dst, uint wad)
         public returns (bool)
     {
+        console.log(msg.sender);
         require(balanceOf[src] >= wad, "Dai/insufficient-balance");
         if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
             require(allowance[src][msg.sender] >= wad, "Dai/insufficient-allowance");
@@ -101,6 +102,7 @@ contract Dai {
     function permit(address holder, address spender, uint256 nonce, uint256 expiry,
                     bool allowed, uint8 v, bytes32 r, bytes32 s) external
     {
+        console.logBytes32(DOMAIN_SEPARATOR);
         bytes32 digest =
             keccak256(abi.encodePacked(
                 "\x19\x01",
@@ -117,6 +119,7 @@ contract Dai {
         require(holder == ecrecover(digest, v, r, s), "Dai/invalid-permit");
         require(expiry == 0 || now <= expiry, "Dai/permit-expired");
         require(nonce == nonces[holder]++, "Dai/invalid-nonce");
+        console.log('permit ok');
         uint wad = allowed ? uint(-1) : 0;
         allowance[holder][spender] = wad;
         emit Approval(holder, spender, wad);

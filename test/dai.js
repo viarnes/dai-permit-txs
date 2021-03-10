@@ -41,7 +41,7 @@ describe('Bitera/Dai transactions', () => {
     [ward, holder, spender] = await ethers.getSigners();
   });
 
-  describe('Dai.sol', () => {
+  xdescribe('Dai.sol', () => {
     it('should mint dai', async () => {
       await dai.mint(holder.address, TEST_WAD);
       expect(await dai.balanceOf(holder.address)).to.equal(TEST_WAD);
@@ -156,6 +156,7 @@ describe('Bitera/Dai transactions', () => {
         TEST_WAD,
       ]);
 
+      await dai.mint(holder.address, TEST_WAD);
       await daiProxy.connect(spender).pt(dai.address, permitData, transferData);
 
       expect(await dai.balanceOf(spender.address)).to.equal(TEST_WAD);
